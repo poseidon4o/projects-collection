@@ -1,0 +1,167 @@
+# depslib dependency file v1.0
+1367533560 source:c:\dropbox\programs\consoletower_cb\consoletower\block.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533324 c:\dropbox\programs\consoletower_cb\consoletower\engine.h
+
+1367533388 c:\dropbox\programs\consoletower_cb\consoletower\object.h
+
+1367533444 c:\dropbox\programs\consoletower_cb\consoletower\block.h
+
+1367533501 c:\dropbox\programs\consoletower_cb\consoletower\character.h
+
+1367533565 source:c:\dropbox\programs\consoletower_cb\consoletower\character.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367535940 source:c:\dropbox\programs\consoletower_cb\consoletower\engine.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533555 source:c:\dropbox\programs\consoletower_cb\consoletower\main.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533686 source:c:\dropbox\programs\consoletower_cb\consoletower\object.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533560 source:c:\dropbox\code\_lubo\consoletower_cb\consoletower\block.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533324 c:\dropbox\code\_lubo\consoletower_cb\consoletower\engine.h
+
+1367533388 c:\dropbox\code\_lubo\consoletower_cb\consoletower\object.h
+
+1367533444 c:\dropbox\code\_lubo\consoletower_cb\consoletower\block.h
+
+1367533501 c:\dropbox\code\_lubo\consoletower_cb\consoletower\character.h
+
+1367533565 source:c:\dropbox\code\_lubo\consoletower_cb\consoletower\character.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367536574 source:c:\dropbox\code\_lubo\consoletower_cb\consoletower\engine.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533555 source:c:\dropbox\code\_lubo\consoletower_cb\consoletower\main.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+
+1367533686 source:c:\dropbox\code\_lubo\consoletower_cb\consoletower\object.cpp
+	<Windows.h>
+	<cstring>
+	<iostream>
+	<sstream>
+	<stdio.h>
+	<cstdlib>
+	<tchar.h>
+	<cassert>
+	"wtypes.h"
+	"Engine.h"
+	"Object.h"
+	"Block.h"
+	"Character.h"
+

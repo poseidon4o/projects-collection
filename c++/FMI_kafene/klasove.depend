@@ -1,0 +1,83 @@
+# depslib dependency file v1.0
+1370696695 source:c:\users\random\desktop\zadanie\klasove\main.cpp
+	<iostream>
+	"include/Ingredient.h"
+	"include/ColdDrink.h"
+	"include/HotDrink.h"
+	"include/Shop.h"
+
+1370695094 c:\users\random\desktop\zadanie\klasove\include\ingredient.h
+
+1370692324 source:c:\users\random\desktop\zadanie\klasove\src\ingredient.cpp
+	"../include/Ingredient.h"
+	<cstring>
+
+1370696328 c:\users\random\desktop\zadanie\klasove\include\colddrink.h
+	"Drink.h"
+
+1370696260 c:\users\random\desktop\zadanie\klasove\include\drink.h
+	"../include/Ingredient.h"
+
+1370696353 source:c:\users\random\desktop\zadanie\klasove\src\colddrink.cpp
+	"../include/ColdDrink.h"
+
+1370696258 source:c:\users\random\desktop\zadanie\klasove\src\drink.cpp
+	"../include/Drink.h"
+	<cstring>
+	<iostream>
+
+1370696308 source:c:\users\random\desktop\zadanie\klasove\src\hotdrink.cpp
+	"../include/HotDrink.h"
+
+1370696289 c:\users\random\desktop\zadanie\klasove\include\hotdrink.h
+	"Drink.h"
+
+1370696372 c:\users\random\desktop\zadanie\klasove\include\shop.h
+	"Drink.h"
+
+1370696704 source:c:\users\random\desktop\zadanie\klasove\src\shop.cpp
+	"../include/Shop.h"
+	<iostream>
+	<cstring>
+
+1370696353 source:c:\users\random\desktop\zadanie\fmi_kafene\src\colddrink.cpp
+	"../include/ColdDrink.h"
+
+1370696328 c:\users\random\desktop\zadanie\fmi_kafene\include\colddrink.h
+	"Drink.h"
+
+1370696260 c:\users\random\desktop\zadanie\fmi_kafene\include\drink.h
+	"../include/Ingredient.h"
+
+1370695094 c:\users\random\desktop\zadanie\fmi_kafene\include\ingredient.h
+
+1370696258 source:c:\users\random\desktop\zadanie\fmi_kafene\src\drink.cpp
+	"../include/Drink.h"
+	<cstring>
+	<iostream>
+
+1370696308 source:c:\users\random\desktop\zadanie\fmi_kafene\src\hotdrink.cpp
+	"../include/HotDrink.h"
+
+1370696289 c:\users\random\desktop\zadanie\fmi_kafene\include\hotdrink.h
+	"Drink.h"
+
+1370692324 source:c:\users\random\desktop\zadanie\fmi_kafene\src\ingredient.cpp
+	"../include/Ingredient.h"
+	<cstring>
+
+1370697299 source:c:\users\random\desktop\zadanie\fmi_kafene\src\shop.cpp
+	"../include/Shop.h"
+	<iostream>
+	<cstring>
+
+1370696372 c:\users\random\desktop\zadanie\fmi_kafene\include\shop.h
+	"Drink.h"
+
+1370697640 source:c:\users\random\desktop\zadanie\fmi_kafene\main.cpp
+	<iostream>
+	"include/Ingredient.h"
+	"include/ColdDrink.h"
+	"include/HotDrink.h"
+	"include/Shop.h"
+
