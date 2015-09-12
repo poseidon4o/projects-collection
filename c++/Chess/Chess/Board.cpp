@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cmath>
 
-Board::Board(): getPromotionPick(NULL) {
+Board::Board(): getPromotionPick(NULL), dirty(false) {
 	this->onMove = WHITE;
 	this->_fill();
 }
@@ -47,8 +47,12 @@ ChessColor Board::getOnMove() const {
 }
 
 bool Board::isMate() {
+	if (!this->dirty)
+		return this->isMateFlag;
+
+	this->dirty = false;
 	if( !this->isUnderAttack(WHITE) && !this->isUnderAttack(BLACK) )
-		return false;
+		return this->isMateFlag = false;
 
 	
 	ChessColor attacked = this->isUnderAttack(WHITE) ? WHITE : BLACK;
@@ -62,7 +66,7 @@ bool Board::isMate() {
 					for(int rTo = 0; rTo < Board::_bSize; ++rTo) {
 						if( this->move(c,r,cTo,rTo) ) {
 							this->_restore();
-							return false;
+							return this->isMateFlag = false;
 						}
 					}
 				}
@@ -70,7 +74,7 @@ bool Board::isMate() {
 		}
 	}
 
-	return true;
+	return this->isMateFlag = true;
 }
 
 void Board::_save() {
@@ -158,7 +162,7 @@ bool Board::move(int cFrom,int rFrom,int cTo,int rTo) {
 				delete fig;
 				delete tmp;
 				this->onMove = Board::flipColor(this->onMove);
-				return true;
+				return this->dirty = true;
 			}
 		}
 
@@ -178,7 +182,7 @@ bool Board::move(int cFrom,int rFrom,int cTo,int rTo) {
 				this->onMove = Board::flipColor(this->onMove);
 				fig->doMove();
 				delete tmp;
-				return true; // succesful en passant
+				return this->dirty = true; // succesful en passant
 			}
 		}
 	} else if( (king = dynamic_cast<const King *>(fig)) && abs(cFrom-cTo) == 2) {// if move is valid and it is more than 1 space long -> castle
@@ -195,7 +199,7 @@ bool Board::move(int cFrom,int rFrom,int cTo,int rTo) {
 
 		this->onMove = Board::flipColor(this->onMove);
 		fig->doMove();
-		return true;
+		return this->dirty = true;
 		// no need to check for check state as castle is not valid when checked
 	} 
 
@@ -209,7 +213,7 @@ bool Board::move(int cFrom,int rFrom,int cTo,int rTo) {
 	} else {
 		this->onMove = Board::flipColor(this->onMove);
 		fig->doMove();
-		return true;
+		return this->dirty = true;
 	}
 
 }

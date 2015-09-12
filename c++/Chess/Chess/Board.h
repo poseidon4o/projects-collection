@@ -35,6 +35,8 @@ protected:
 	void _save();
 	void _restore();
 	Figure ***_state;
+	bool dirty;
+	bool isMateFlag;
 
 	Figure *(*getPromotionPick)(const Board *);
 

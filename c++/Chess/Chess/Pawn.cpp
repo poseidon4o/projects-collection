@@ -18,6 +18,7 @@ bool Pawn::isValid(const Cell *from,const Cell *to,const Board *board) const {
 		return true;
 	
 	if( rowDiff == 2 && 
+		colDiff == 0 &&
 		!this->getDidMove() &&
 		( from->row() == 1 || from->row() == 6 ) && 
 		!board->at(to->col(),to->row()) && 
