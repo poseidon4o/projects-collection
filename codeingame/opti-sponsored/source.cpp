@@ -104,7 +104,7 @@ struct field_t {
     enum cell_t {
         empty = '.',
         wall = '#',
-        free = '_'
+        free = '_',
     };
 
     const char * cellType(cell_t cell) {
@@ -121,6 +121,15 @@ struct field_t {
 
     field_t(int w, int h) : m_data(w, row_t(h, empty)) {
         dfs.m_init = false;
+    }
+
+    bool isEnemy(int x, int y, state_t & st) {
+        for (int c = 0; c < st.size(); ++c) {
+            if (st[c].first == x && st[c].second == y) {
+                return true;
+            }
+        }
+        return false;
     }
 
     char atField(int x, int y, state_t & st) {
@@ -181,7 +190,7 @@ struct field_t {
         dfs.m_state.push({ 0, INVALID });
     }
 
-    char dfs_step(int x, int y) {
+    char dfs_step(int x, int y, state_t & state) {
         static coord_t steps[4] = {
             { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 }
         };
@@ -204,7 +213,7 @@ struct field_t {
 
             LOG("disp [%d, %d] -> [%d, %d] = %s", steps[st.idx].x, steps[st.idx].y, tx, ty, cellType(m_data[tx][ty]));
 
-            if (m_data[tx][ty] == free && dfs.m_visited.find(coord_t{tx, ty}) == dfs.m_visited.end()) {
+            if (!isEnemy(tx, ty, state) && m_data[tx][ty] == free && dfs.m_visited.find(coord_t{tx, ty}) == dfs.m_visited.end()) {
 
                 LOG("found empty field %d, pushing state", st.idx);
 
@@ -270,6 +279,7 @@ int main()
             int a, b;
             cin >> a >> b; cin.ignore();
             moves.push_back(coord_t(a, b));
+            F.update(a, b, field_t::cell_t::free);
         }
         //   U
         //  L.R
@@ -287,7 +297,7 @@ int main()
 
         F.print(moves);
 
-        auto toWhere = F.dfs_step(x, y);
+        auto toWhere = F.dfs_step(x, y, moves);
         LOG("Moving %s", dirToStr(cToDir(toWhere)));
 
         ACTION("%c", toWhere);
