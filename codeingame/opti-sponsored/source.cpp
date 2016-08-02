@@ -6,10 +6,10 @@
 #include <unordered_set>
 #include <utility>
 #include <sstream>
+#include <bitset>
 using namespace std;
 
 #define LOG(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
-#define ACTION(...) { fprintf(stdout, __VA_ARGS__); fprintf(stdout, "\n");}
 
 struct coord_t {
     coord_t(int x, int y) : x(x), y(y) {}
@@ -22,6 +22,10 @@ struct coord_t {
 
 bool operator==(const coord_t & l, const coord_t & r) {
     return l.x == r.x && l.y == r.y;
+}
+
+bool operator!=(const coord_t & l, const coord_t & r) {
+    return !(l == r);
 }
 
 namespace std
@@ -38,8 +42,63 @@ namespace std
         }
     };
 }
+typedef bitset<32> movemap_t;
+struct state_t {
+    vector<coord_t> m_items;
+    const movemap_t * m_map;
 
-typedef vector<coord_t> state_t;
+    state_t(const movemap_t &m) : m_map(&m) {
+
+    }
+
+    void add(coord_t ps) {
+        m_items.push_back(ps);
+    }
+
+    void add(int x, int y) {
+        m_items.push_back(coord_t(x, y));
+    }
+
+    const coord_t & player() const {
+        return m_items.back();
+    }
+
+    int size() const {
+        return m_items.size();
+    }
+
+    const coord_t & operator[](int idx) {
+        return m_items[idx];
+    }
+
+    float closestToPlayer() const {
+        return closestTo(player());
+    }
+
+    float closestTo(const coord_t & ps) const {
+        float dist = 1e99;
+        for (int c = 0; c < m_items.size() - 1; ++c) {
+            const auto & to = m_items[c];
+            auto shouldCheck = m_map && m_map->any() ? m_map->test(c) : true;
+
+            if (ps != to && shouldCheck) {
+                float toThis = (ps.x - to.x) * (ps.x - to.x) + (ps.y - to.y) * (ps.y - to.y);
+                dist = min(dist, toThis);
+            }
+        }
+        return sqrtf(dist);
+    }
+
+    bool isEnemy(int x, int y) {
+        for (int c = 0; c < m_items.size() - 1; ++c) {
+            if (m_items[c].first == x && m_items[c].second == y) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
 
 // E == UP
 // A == DOWN
@@ -100,6 +159,10 @@ dir_t cToDir(char c) {
     return d;
 }
 
+void ACTION(dir_t d) {
+    fprintf(stdout, "%c\n", dirToC(d));
+}
+
 struct field_t {
     enum cell_t {
         empty = '.',
@@ -121,15 +184,6 @@ struct field_t {
 
     field_t(int w, int h) : m_data(w, row_t(h, empty)) {
         dfs.m_init = false;
-    }
-
-    bool isEnemy(int x, int y, state_t & st) {
-        for (int c = 0; c < st.size(); ++c) {
-            if (st[c].first == x && st[c].second == y) {
-                return true;
-            }
-        }
-        return false;
     }
 
     char atField(int x, int y, state_t & st) {
@@ -190,30 +244,27 @@ struct field_t {
         dfs.m_state.push({ 0, INVALID });
     }
 
-    char dfs_step(int x, int y, state_t & state) {
-        static coord_t steps[4] = {
-            { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 }
-        };
-
-        dir_t step_map[4] = { RIGHT, LEFT, DOWN, UP };
+    dir_t dfs_step(state_t & state) {
+        static coord_t steps[4] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 } };
+        static dir_t step_map[4] = { RIGHT, LEFT, DOWN, UP };
 
         if (dfs.m_state.empty()) {
-            LOG("dfs_step(%d, %d) STATE EMPTY", x, y);
+            LOG("dfs_step(%d, %d) STATE EMPTY", state.player().x, state.player().y);
             exit(1);
         }
 
         auto & st = dfs.m_state.top();
-        dfs.m_visited.insert(coord_t{ x, y });
+        dfs.m_visited.insert(state.player());
 
-        LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", x, y, st.idx, st.from, dfs.m_state.size());
+        LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", state.player().x, state.player().y, st.idx, st.from, dfs.m_state.size());
 
         for (/**/; st.idx < 4; ++st.idx) {
-            auto tx = x + steps[st.idx].x;
-            auto ty = y + steps[st.idx].y;
+            auto tx = state.player().x + steps[st.idx].x;
+            auto ty = state.player().y + steps[st.idx].y;
 
             LOG("disp [%d, %d] -> [%d, %d] = %s", steps[st.idx].x, steps[st.idx].y, tx, ty, cellType(m_data[tx][ty]));
 
-            if (!isEnemy(tx, ty, state) && m_data[tx][ty] == free && dfs.m_visited.find(coord_t{tx, ty}) == dfs.m_visited.end()) {
+            if (!state.isEnemy(tx, ty) && m_data[tx][ty] == free && dfs.m_visited.find(coord_t{tx, ty}) == dfs.m_visited.end()) {
 
                 LOG("found empty field %d, pushing state", st.idx);
 
@@ -221,7 +272,7 @@ struct field_t {
                 // and how we got there map[idx]
                 // return where we go
                 dfs.m_state.push({ 0, step_map[st.idx] });
-                return dirToC(step_map[st.idx]);
+                return step_map[st.idx];
             }
         }
 
@@ -230,7 +281,39 @@ struct field_t {
         LOG("iter ended, poping state back %c", st.from);
         auto to = invert(st.from);
         dfs.m_state.pop();
-        return dirToC(to);
+        return to;
+    }
+
+    dir_t best_step(state_t &state) {
+        static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 }, {0, 0} };
+        static dir_t step_map[5] = { RIGHT, LEFT, DOWN, UP, STAY };
+
+        const auto & pl = state.player();
+
+        float bestDist = 0.f;
+        int bestIdx = 0;
+
+        if (state.m_map) {
+            for (int c = 0; c < state.size() - 1; ++c) {
+                LOG("Checking enemy %c == %s", 'A' + c, state.m_map->test(c) ? "true" : "false");
+            }
+        }
+
+        for (int c = 0; c < 4; ++c) {
+            const auto & stp = steps[c];
+            auto tx = pl.x + stp.x;
+            auto ty = pl.y + stp.y;
+
+            if (m_data[tx][ty] == free && !state.isEnemy(tx, ty)) {
+                float fst = state.closestTo(coord_t(tx, ty));
+                if (fst > bestDist) {
+                    bestDist = fst;
+                    bestIdx = c;
+                }
+            }
+        }
+
+        return step_map[bestIdx];
     }
 
     row_t & operator[](int c) {
@@ -258,12 +341,13 @@ int main()
 
     cerr << width << " " << height << " " << figCount << endl;
 
-    int left = 8;
-    int up = 12;
-
-    field_t F(width, height);
+    field_t F(width + 1, height + 1);
 
     F.dfs_init();
+
+    movemap_t movingPlayers(0);
+    state_t prev_state(movingPlayers);
+    bool startTrack = false;
 
     // game loop
     while (1) {
@@ -273,21 +357,30 @@ int main()
 
         char U = f1[0], R = f2[0], D = f3[0], L = f4[0];
 
-        state_t moves;
+        state_t moves(movingPlayers);
 
         for (int i = 0; i < figCount - 1; i++) {
             int a, b;
             cin >> a >> b; cin.ignore();
-            moves.push_back(coord_t(a, b));
+            moves.add(coord_t(a, b));
             F.update(a, b, field_t::cell_t::free);
         }
+
+        if (startTrack) {
+            for (int c = 0; c < moves.size(); ++c) {
+                if (moves[c] != prev_state[c]) {
+                    movingPlayers[c] = true;
+                }
+            }
+        }
+
         //   U
         //  L.R
         //   D
 
         int x, y;
         cin >> x >> y;
-        moves.push_back(coord_t(x, y));
+        moves.add(coord_t(x, y));
 
         F.update(x - 1, y, L);
         F.update(x + 1, y, R);
@@ -297,9 +390,11 @@ int main()
 
         F.print(moves);
 
-        auto toWhere = F.dfs_step(x, y, moves);
-        LOG("Moving %s", dirToStr(cToDir(toWhere)));
+        auto toWhere = F.best_step(moves);
+        LOG("Moving %s", dirToStr(toWhere));
 
-        ACTION("%c", toWhere);
+        ACTION(toWhere);
+        startTrack = true;
+        prev_state = moves;
     }
 }
