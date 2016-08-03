@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <algorithm>
 #include <unordered_set>
 #include <utility>
@@ -12,7 +13,7 @@ using namespace std;
 #define LOG(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
 
 struct coord_t {
-    coord_t(int x, int y) : x(x), y(y) {}
+    coord_t(int x = -1, int y = -1) : x(x), y(y) {}
     union {
         int data[2];
         struct { int x, y; };
@@ -86,7 +87,7 @@ struct state_t {
                 dist = min(dist, toThis);
             }
         }
-        return sqrtf(dist);
+        return dist;
     }
 
     bool isEnemy(int x, int y) {
@@ -288,32 +289,64 @@ struct field_t {
         static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 }, {0, 0} };
         static dir_t step_map[5] = { RIGHT, LEFT, DOWN, UP, STAY };
 
-        const auto & pl = state.player();
-
-        float bestDist = 0.f;
-        int bestIdx = 0;
-
         if (state.m_map) {
             for (int c = 0; c < state.size() - 1; ++c) {
                 LOG("Checking enemy %c == %s", 'A' + c, state.m_map->test(c) ? "true" : "false");
             }
         }
 
-        for (int c = 0; c < 4; ++c) {
-            const auto & stp = steps[c];
-            auto tx = pl.x + stp.x;
-            auto ty = pl.y + stp.y;
+        const auto & pl = state.player();
 
-            if (m_data[tx][ty] == free && !state.isEnemy(tx, ty)) {
-                float fst = state.closestTo(coord_t(tx, ty));
-                if (fst > bestDist) {
-                    bestDist = fst;
-                    bestIdx = c;
+        float bestDist = 0;
+
+        typedef vector<coord_t> path_t;
+        unordered_set<coord_t, hash<coord_t>> bfsVisited;
+
+        auto appendPath = [](path_t p, coord_t c) {
+            p.push_back(c);
+            return p;
+        };
+
+        LOG("Starting BFS to find furthest point");
+        path_t bestPos;
+        queue<path_t> q;
+        q.push(path_t(1, pl));
+
+        while (!q.empty()) {
+            auto cur = q.front(); q.pop();
+
+            auto dist = state.closestTo(cur.back());
+            if (dist > bestDist) {
+                bestDist = dist;
+                bestPos = cur;
+            }
+
+            for (int c = 0; c < 4; ++c) {
+                const auto & stp = steps[c];
+                auto tx = cur.back().x + stp.x;
+                auto ty = cur.back().y + stp.y;
+
+                auto newPos = coord_t(tx, ty);
+                LOG("Will check [%d,%d] and size is [%d,%d]", tx, ty, m_data.size(), m_data[0].size());
+                if (m_data[tx][ty] == free && !state.isEnemy(tx, ty) && bfsVisited.find(newPos) == bfsVisited.end()) {
+                    bfsVisited.insert(newPos);
+                    q.push(appendPath(cur, newPos));
                 }
             }
         }
 
-        return step_map[bestIdx];
+        LOG("Best place to go [%d,%d] -> [%d,%d], path len: %d", pl.x, pl.y, bestPos.back().x, bestPos.back().y, bestPos.size());
+        if (bestPos.size() > 1) {
+            for (int c = 0; c < 4; ++c) {
+                coord_t check(pl.x + steps[c].x, pl.y + steps[c].y);
+                if (bestPos[1] == check) {
+                    return step_map[c];
+                }
+            }
+        }
+
+        LOG("WTF cant find what is paths second step's direction");
+        return STAY;
     }
 
     row_t & operator[](int c) {
@@ -328,7 +361,7 @@ struct field_t {
     vector<row_t> m_data;
 };
 
-
+// TODO: fix x/y and width/height order
 
 int main()
 {
@@ -341,7 +374,7 @@ int main()
 
     cerr << width << " " << height << " " << figCount << endl;
 
-    field_t F(width + 1, height + 1);
+    field_t F(width, height);
 
     F.dfs_init();
 
@@ -359,11 +392,15 @@ int main()
 
         state_t moves(movingPlayers);
 
-        for (int i = 0; i < figCount - 1; i++) {
+        for (int c = 0; c < figCount - 1; c++) {
             int a, b;
             cin >> a >> b; cin.ignore();
             moves.add(coord_t(a, b));
             F.update(a, b, field_t::cell_t::free);
+
+            if (startTrack) {
+                LOG("%c [%d, %d] -> [%d,%d]", 'A' + c, prev_state[c].x, prev_state[c].y, a, b);
+            }
         }
 
         if (startTrack) {
@@ -393,7 +430,7 @@ int main()
         auto toWhere = F.best_step(moves);
         LOG("Moving %s", dirToStr(toWhere));
 
-        ACTION(toWhere);
+        ACTION(STAY);
         startTrack = true;
         prev_state = moves;
     }
