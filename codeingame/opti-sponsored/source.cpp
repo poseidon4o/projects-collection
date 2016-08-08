@@ -5,12 +5,16 @@
 #include <queue>
 #include <algorithm>
 #include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <sstream>
 #include <bitset>
+#include <memory>
 using namespace std;
 
 #define LOG(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n");}
+#define ERR(...) { LOG(__VA_ARGS__); exit(1); }
+
 
 struct coord_t {
     coord_t(int x = -1, int y = -1) : x(x), y(y) {}
@@ -27,6 +31,10 @@ bool operator==(const coord_t & l, const coord_t & r) {
 
 bool operator!=(const coord_t & l, const coord_t & r) {
     return !(l == r);
+}
+
+coord_t operator+(const coord_t & l, const coord_t & r) {
+    return coord_t(l.x + r.x, l.y + r.y);
 }
 
 namespace std
@@ -68,26 +76,20 @@ struct state_t {
         return m_items.size();
     }
 
+    coord_t & at(int idx) {
+        return m_items.at(idx);
+    }
+
+    const coord_t & at(int idx) const {
+        return m_items.at(idx);
+    }
+
     const coord_t & operator[](int idx) {
         return m_items[idx];
     }
 
-    float closestToPlayer() const {
-        return closestTo(player());
-    }
-
-    float closestTo(const coord_t & ps) const {
-        float dist = 1e99;
-        for (int c = 0; c < m_items.size() - 1; ++c) {
-            const auto & to = m_items[c];
-            auto shouldCheck = m_map && m_map->any() ? m_map->test(c) : true;
-
-            if (ps != to && shouldCheck) {
-                float toThis = (ps.x - to.x) * (ps.x - to.x) + (ps.y - to.y) * (ps.y - to.y);
-                dist = min(dist, toThis);
-            }
-        }
-        return dist;
+    bool isMoving(int c) {
+        return m_map && m_map->any() ? m_map->test(c) : true;
     }
 
     bool isEnemy(int x, int y) {
@@ -108,11 +110,11 @@ struct state_t {
 // B == stay
 
 enum dir_t : char {
-    DOWN  = 'A',
-    STAY  = 'B',
-    LEFT  = 'C',
+    DOWN = 'A',
+    STAY = 'B',
+    LEFT = 'C',
     RIGHT = 'D',
-    UP    = 'E',
+    UP = 'E',
     INVALID = 'X',
 };
 
@@ -183,19 +185,158 @@ struct field_t {
 
     typedef vector<cell_t> row_t;
 
-    field_t(int w, int h) : m_data(w, row_t(h, empty)) {
+    struct bool_map_t {
+        typedef uint8_t data_t;
+
+        vector<vector<data_t>> m_data;
+        data_t                 m_alloc;
+
+        struct bm_handle_t;
+        typedef shared_ptr<bm_handle_t> map_slice_t;
+
+        bool_map_t(int w, int h) : m_data(w, vector<data_t>(h, 0)), m_alloc(0) {}
+
+        map_slice_t takeSlice() {
+            for (int c = 0; c < sizeof(data_t) * 8; ++c) {
+                if (((m_alloc >> c) & 1) == 0) {
+                    m_alloc |= 1 << c;
+                    return map_slice_t(new bm_handle_t(this, c));
+                }
+            }
+            ERR("Too few slices in map width [%d]", sizeof(data_t) * 8);
+        }
+
+        struct bm_handle_t {
+            bool_map_t * owner;
+            int idx;
+
+            bm_handle_t(bool_map_t * own, int idx) : owner(own), idx(idx) {}
+
+            void set(int x, int y) {
+                owner->m_data[x][y] |= 1 << idx;
+            }
+
+            void clear(int x, int y) {
+                owner->m_data[x][y] &= ~(1 << idx);
+            }
+
+            bool check(int x, int y) {
+                return (owner->m_data[x][y] >> idx) & 1;
+            }
+
+            void set(coord_t pos) {
+                set(pos.x, pos.y);
+            }
+
+            void clear(coord_t pos) {
+                clear(pos.x, pos.y);
+            }
+
+            bool check(coord_t pos) {
+                return check(pos.x, pos.y);
+            }
+
+            ~bm_handle_t() {
+                for (int c = 0; c < owner->m_data.size(); ++c) {
+                    for (int r = 0; r < owner->m_data[c].size(); ++r) {
+                        clear(c, r);
+                    }
+                }
+                owner->m_alloc &= ~(1 << idx);
+            }
+        };
+    };
+
+
+
+    field_t(int w, int h) : m_data(w, row_t(h, empty)), m_state(nullptr), m_visited_map(w, h), m_last_avg_dist(1e99) {
         dfs.m_init = false;
+        dfs.m_visited = m_visited_map.takeSlice();
     }
 
-    char atField(int x, int y, state_t & st) {
-        for (int c = 0; c < st.size(); ++c) {
-            if (st[c].first == x && st[c].second == y) {
-                if (m_data[x][y] == wall) {
-                    LOG("[%d,%d] is %s and has %c on it", x, y, cellType(wall), 'A' + c);
+    void setState(const state_t * state) {
+        m_state = state;
+    }
+
+    int BFSDist(coord_t from, coord_t to) {
+        static coord_t steps[4] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 } };
+
+        struct dist_pair_t {
+            coord_t pos;
+            int len;
+        };
+
+        queue<dist_pair_t> Q;
+        Q.push(dist_pair_t({ from, 0 }));
+
+        auto visited = m_visited_map.takeSlice();
+
+        while (!Q.empty()) {
+            auto cur = Q.front(); Q.pop();
+            if (cur.pos == to) {
+                return cur.len;
+            }
+
+            visited->set(cur.pos);
+
+            for (int c = 0; c < 4; ++c) {
+                auto next = cur.pos + steps[c];
+
+                if (!visited->check(next) && m_data[next.x][next.y] == free) {
+                    Q.push(dist_pair_t({ next, cur.len + 1 }));
                 }
-                return 'A' + c;
             }
         }
+
+        return -1;
+    }
+
+    int closestEnemyTo(state_t & state, coord_t pos) {
+        int bestDist = 1e99;
+        int idx = -1;
+
+        for (int c = 0; c < state.size() - 1; ++c) {
+            if (!state.isMoving(c)) {
+                continue;
+            }
+            auto dist = BFSDist(pos, state[c]);
+            if (dist != -1 && dist < bestDist) {
+                bestDist = dist;
+                idx = c;
+            }
+        }
+
+        if (idx != -1) {
+            return bestDist;
+        }
+
+        for (int c = 0; c < state.size() - 1; ++c) {
+            if (!state.isMoving(c)) {
+                continue;
+            }
+            auto dist = abs(pos.x - state[c].x) + abs(pos.y - state[c].y);
+            if (dist < bestDist) {
+                idx = c;
+                bestDist = dist;
+            }
+        }
+
+        return bestDist;
+    }
+
+    cell_t operator()(int x, int y) {
+        coord_t pos(x, y);
+        if (m_state) {
+            for (int c = 0; c < m_state->size(); ++c) {
+                if (pos == m_state->at(c)) {
+                    if (m_data[x][y] == wall) {
+                        ERR("[%d,%d] is '%s' and has '%c' on it", x, y, cellType(wall), 'A' + c);
+                    }
+                    return cell_t('A' + c);
+                }
+            }
+        }
+
         return m_data[x][y];
     }
 
@@ -203,7 +344,7 @@ struct field_t {
         stringstream data;
         for (int c = 0; c < m_data.size(); ++c) {
             for (int r = 0; r < m_data[c].size(); ++r) {
-                data << atField(c, r, st);
+                data << (char)(*this)(c, r);
             }
             data << endl;
         }
@@ -216,7 +357,7 @@ struct field_t {
         {
         case '_': return update(x, y, free);
         case '#': return update(x, y, wall);
-        default: LOG("WTF %c input to update [%d,%d]", val, x, y);
+        default: ERR("WTF %c input to update [%d,%d]", val, x, y);
         }
     }
 
@@ -226,7 +367,7 @@ struct field_t {
         }
 
         if (m_data[x][y] != empty && m_data[x][y] != val) {
-            LOG("[%d,%d] set to %s but was %s", x, y, cellType(val), cellType(m_data[x][y]));
+            ERR("[%d,%d] set to '%s' but was '%s'", x, y, cellType(val), cellType(m_data[x][y]));
         }
 
         m_data[x][y] = val;
@@ -255,7 +396,7 @@ struct field_t {
         }
 
         auto & st = dfs.m_state.top();
-        dfs.m_visited.insert(state.player());
+        dfs.m_visited->set(state.player());
 
         LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", state.player().x, state.player().y, st.idx, st.from, dfs.m_state.size());
 
@@ -265,7 +406,7 @@ struct field_t {
 
             LOG("disp [%d, %d] -> [%d, %d] = %s", steps[st.idx].x, steps[st.idx].y, tx, ty, cellType(m_data[tx][ty]));
 
-            if (!state.isEnemy(tx, ty) && m_data[tx][ty] == free && dfs.m_visited.find(coord_t{tx, ty}) == dfs.m_visited.end()) {
+            if (!state.isEnemy(tx, ty) && m_data[tx][ty] == free && !dfs.m_visited->check(coord_t{ tx, ty })) {
 
                 LOG("found empty field %d, pushing state", st.idx);
 
@@ -286,7 +427,7 @@ struct field_t {
     }
 
     dir_t best_step(state_t &state) {
-        static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 }, {0, 0} };
+        static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 },{ 0, 0 } };
         static dir_t step_map[5] = { RIGHT, LEFT, DOWN, UP, STAY };
 
         if (state.m_map) {
@@ -297,10 +438,34 @@ struct field_t {
 
         const auto & pl = state.player();
 
+        float avgDist = 0.f;
+        int cnt = 0;
+        for (int c = 0; c < state.size() - 1; ++c) {
+            if (state.isMoving(c)) {
+                auto tDist = BFSDist(pl, state[c]);
+                if (tDist == -1) {
+                    tDist = abs(pl.x - state[c].x) + abs(pl.y - state[c].y);
+                }
+                avgDist += tDist;
+                ++cnt;
+            }
+        }
+
+        avgDist /= float(cnt);
+
+        const bool doDFS = avgDist > m_last_avg_dist;
+        LOG("AVG: %f, last AVG %f, moving visible enemies %d -> %s!", avgDist, m_last_avg_dist, cnt, doDFS ? "EXPLORING" : "RUNNING");
+
+        m_last_avg_dist = avgDist;
+
+        if (doDFS) {
+            return dfs_step(state);
+        }
+
         float bestDist = 0;
 
         typedef vector<coord_t> path_t;
-        unordered_set<coord_t, hash<coord_t>> bfsVisited;
+        auto bfs_visited = m_visited_map.takeSlice();
 
         auto appendPath = [](path_t p, coord_t c) {
             p.push_back(c);
@@ -315,7 +480,7 @@ struct field_t {
         while (!q.empty()) {
             auto cur = q.front(); q.pop();
 
-            auto dist = state.closestTo(cur.back());
+            auto dist = closestEnemyTo(state, cur.back());;
             if (dist > bestDist) {
                 bestDist = dist;
                 bestPos = cur;
@@ -327,9 +492,8 @@ struct field_t {
                 auto ty = cur.back().y + stp.y;
 
                 auto newPos = coord_t(tx, ty);
-                LOG("Will check [%d,%d] and size is [%d,%d]", tx, ty, m_data.size(), m_data[0].size());
-                if (m_data[tx][ty] == free && !state.isEnemy(tx, ty) && bfsVisited.find(newPos) == bfsVisited.end()) {
-                    bfsVisited.insert(newPos);
+                if (m_data[tx][ty] == free && !state.isEnemy(tx, ty) && !bfs_visited->check(newPos)) {
+                    bfs_visited->set(newPos);
                     q.push(appendPath(cur, newPos));
                 }
             }
@@ -356,9 +520,13 @@ struct field_t {
     struct {
         bool m_init;
         stack<dfs_state_t> m_state;
-        unordered_set<coord_t, hash<coord_t>> m_visited;
+        bool_map_t::map_slice_t m_visited;
     } dfs;
-    vector<row_t> m_data;
+
+    float          m_last_avg_dist;
+    vector<row_t>  m_data;
+    const state_t *m_state;
+    bool_map_t     m_visited_map;
 };
 
 // TODO: fix x/y and width/height order
@@ -416,8 +584,10 @@ int main()
         //   D
 
         int x, y;
-        cin >> x >> y;
+        cin >> x >> y; cin.ignore();
         moves.add(coord_t(x, y));
+
+        F.setState(&moves);
 
         F.update(x - 1, y, L);
         F.update(x + 1, y, R);
@@ -430,8 +600,11 @@ int main()
         auto toWhere = F.best_step(moves);
         LOG("Moving %s", dirToStr(toWhere));
 
-        ACTION(STAY);
+        ACTION(toWhere);
         startTrack = true;
         prev_state = moves;
+
+
+        F.setState(nullptr);
     }
 }
