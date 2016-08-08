@@ -76,9 +76,9 @@ struct state_t {
         return m_items.size();
     }
 
-	coord_t & back() {
-		return m_items.back();
-	}
+    coord_t & back() {
+        return m_items.back();
+    }
 
     coord_t & at(int idx) {
         return m_items.at(idx);
@@ -105,11 +105,11 @@ struct state_t {
         return false;
     }
 
-	void print() {
-		for (int c = 0; c < m_items.size(); ++c) {
-			LOG("%c at [%d,%d]", 'A' + c, m_items[c].x, m_items[c].y);
-		}
-	}
+    void print() {
+        for (int c = 0; c < m_items.size(); ++c) {
+            LOG("%c at [%d,%d]", 'A' + c, m_items[c].x, m_items[c].y);
+        }
+    }
 };
 
 
@@ -124,7 +124,7 @@ enum dir_t : char {
     STAY = 'B',
     UP = 'C',
     DOWN = 'D',
-    LEFT = 'E',    
+    LEFT = 'E',
     INVALID = 'X',
 };
 
@@ -259,7 +259,7 @@ struct field_t {
 
 
 
-    field_t(int w, int h) : m_data(h, row_t(w, empty)), m_state(nullptr), m_visited_map(h, w), m_last_avg_dist(1e99) {
+    field_t(int w, int h) : m_data(w, row_t(h, empty)), m_state(nullptr), m_visited_map(w, h), m_last_avg_dist(1e99) {
         dfs.m_init = false;
         dfs.m_visited = m_visited_map.takeSlice();
     }
@@ -335,9 +335,9 @@ struct field_t {
     }
 
     cell_t operator()(int x, int y) {
-		if (!isInside(coord_t(x, y))) {
-			ERR("Checking [%d,%d] for value and it is OUTSIDE [%d,%d]", x, y, m_data.size(), m_data[0].size());
-		}
+        if (!isInside(coord_t(x, y))) {
+            ERR("Checking [%d,%d] for value and it is OUTSIDE [%d,%d]", x, y, m_data.size(), m_data[0].size());
+        }
 
         coord_t pos(x, y);
         if (m_state) {
@@ -354,7 +354,7 @@ struct field_t {
         return m_data[x][y];
     }
 
-    void print(state_t & st) {
+    void print() {
         stringstream data;
         for (int c = 0; c < m_data.size(); ++c) {
             for (int r = 0; r < m_data[c].size(); ++r) {
@@ -405,26 +405,25 @@ struct field_t {
         static dir_t step_map[4] = { RIGHT, LEFT, DOWN, UP };
 
         if (dfs.m_state.empty()) {
-            LOG("dfs_step(%d, %d) STATE EMPTY", state.player().x, state.player().y);
-            exit(1);
+            ERR("dfs_step(%d, %d) STATE EMPTY", state.player().x, state.player().y);
         }
 
         auto & st = dfs.m_state.top();
         dfs.m_visited->set(state.player());
 
-        LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", state.player().x, state.player().y, st.idx, st.from, dfs.m_state.size());
+        //LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", state.player().x, state.player().y, st.idx, st.from, dfs.m_state.size());
 
         for (/**/; st.idx < 4; ++st.idx) {
-			auto to = state.player() + steps[st.idx];
-			if (!isInside(to)) {
-				continue;
-			}
+            auto to = state.player() + steps[st.idx];
+            if (!isInside(to)) {
+                continue;
+            }
 
-            LOG("disp [%d, %d] -> [%d, %d] = %s", steps[st.idx].x, steps[st.idx].y, to.x, to.y, cellType(m_data[to.x][to.y]));
+            //LOG("disp [%d, %d] -> [%d, %d] = %s", steps[st.idx].x, steps[st.idx].y, to.x, to.y, cellType(m_data[to.x][to.y]));
 
             if (!state.isEnemy(to.x, to.y) && m_data[to.x][to.y] == free && !dfs.m_visited->check(to)) {
 
-                LOG("found empty field %d, pushing state", st.idx);
+                //LOG("found empty field %d, pushing state", st.idx);
 
                 // push new state on stack with iter 0
                 // and how we got there map[idx]
@@ -436,15 +435,23 @@ struct field_t {
 
         // we are here so finished this iter
         // go back 1 lvl, and pop state
-        LOG("iter ended, poping state back %c", st.from);
+        //LOG("iter ended, poping state back %c", st.from);
         auto to = invert(st.from);
         dfs.m_state.pop();
+
+        if (to == INVALID) {
+            to = STAY;
+            dfs.m_state.push({ 0, INVALID });
+            dfs.m_visited.reset();
+            dfs.m_visited = m_visited_map.takeSlice();
+        }
+
         return to;
     }
 
-	bool isInside(coord_t pos) {
-		return pos.x >= 0 && pos.x < m_data.size() && pos.y >= 0 && pos.y <= m_data[0].size();
-	}
+    bool isInside(coord_t pos) {
+        return pos.x >= 0 && pos.x < m_data.size() && pos.y >= 0 && pos.y <= m_data[0].size();
+    }
 
     dir_t best_step(state_t &state) {
         static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 },{ 0, 0 } };
@@ -453,7 +460,7 @@ struct field_t {
         const auto & pl = state.player();
 
         float avgDist = 0.f;
-		int closest = 1e99;
+        int closest = 1e99;
         int cnt = 0;
         for (int c = 0; c < state.size() - 1; ++c) {
             if (state.isMoving(c)) {
@@ -461,7 +468,7 @@ struct field_t {
                 if (tDist == -1) {
                     tDist = abs(pl.x - state[c].x) + abs(pl.y - state[c].y);
                 }
-				closest = min(closest, tDist);
+                closest = min(closest, tDist);
                 avgDist += tDist;
                 ++cnt;
             }
@@ -469,8 +476,9 @@ struct field_t {
 
         avgDist /= float(cnt);
 
-		const bool doDFS = closest > 5;
-        LOG("AVG: %f, last AVG %f, moving visible enemies %d [%d] -> %s!", avgDist, m_last_avg_dist, closest, cnt, doDFS ? "EXPLORING" : "RUNNING");
+        const bool doDFS = closest > 5;
+        //LOG("AVG: %f, last AVG %f, moving visible enemies %d [%d] -> %s!", avgDist, m_last_avg_dist, closest, cnt, doDFS ? "EXPLORING" : "RUNNING");
+        LOG(doDFS ? "EXPLORING" : "RUNNING");
 
         m_last_avg_dist = avgDist;
 
@@ -488,7 +496,7 @@ struct field_t {
             return p;
         };
 
-        LOG("Starting BFS to find furthest point");
+        //LOG("Starting BFS to find furthest point");
         path_t bestPos;
         queue<path_t> q;
         q.push(path_t(1, pl));
@@ -503,7 +511,7 @@ struct field_t {
             }
 
             for (int c = 0; c < 4; ++c) {
-				auto nPos = steps[c] + cur.back();
+                auto nPos = steps[c] + cur.back();
 
                 if (isInside(nPos) && m_data[nPos.x][nPos.y] == free && !state.isEnemy(nPos.x, nPos.y) && !bfs_visited->check(nPos)) {
                     bfs_visited->set(nPos);
@@ -512,17 +520,17 @@ struct field_t {
             }
         }
 
-        LOG("Best place to go [%d,%d] -> [%d,%d], path len: %d", pl.x, pl.y, bestPos.back().x, bestPos.back().y, bestPos.size());
+        //LOG("Best place to go [%d,%d] -> [%d,%d], path len: %d", pl.x, pl.y, bestPos.back().x, bestPos.back().y, bestPos.size());
         if (bestPos.size() > 1) {
             for (int c = 0; c < 4; ++c) {
-				auto check = steps[c] + pl;
+                auto check = steps[c] + pl;
                 if (bestPos[1] == check) {
                     return step_map[c];
                 }
             }
         }
 
-        LOG("WTF cant find what is paths second step's direction");
+        //LOG("WTF cant find what is paths second step's direction");
         return STAY;
     }
 
@@ -542,23 +550,15 @@ struct field_t {
     bool_map_t     m_visited_map;
 };
 
-// TODO: fix x/y and width/height order
-
-int f();
-
 int main()
 {
-	return f();
-    int width;
+    int width, height, figCount;
+
     cin >> width; cin.ignore();
-    int height;
     cin >> height; cin.ignore();
-    int figCount;
     cin >> figCount; cin.ignore();
 
-    cerr << width << " " << height << " " << figCount << endl;
-
-    field_t F(max(width, height), max(width, height));
+    field_t F(width, height);
 
     F.dfs_init();
 
@@ -573,14 +573,18 @@ int main()
         cin >> f3; cin.ignore(); cin >> f4; cin.ignore();
 
         char U = f1[0], R = f2[0], D = f3[0], L = f4[0];
+        swap(U, L);
+        swap(D, R);
 
         state_t moves(movingPlayers);
 
-        for (int c = 0; c < figCount - 1; c++) {
-            int a, b;
-            cin >> a >> b; cin.ignore();
-            moves.add(coord_t(a, b));
-            F.update(a, b, field_t::cell_t::free);
+        int x, y;
+        for (int c = 0; c < figCount; c++) {
+            cin >> x >> y; cin.ignore();
+            swap(x, y);
+
+            moves.add(coord_t(x, y));
+            F.update(x, y, field_t::cell_t::free);
 
             //if (startTrack) {
             //    LOG("%c [%d, %d] -> [%d,%d]", 'A' + c, prev_state[c].x, prev_state[c].y, a, b);
@@ -594,20 +598,8 @@ int main()
                 }
             }
         }
-
-        //   U
-        //  L.R
-        //   D
-
-        int x, y;
-        cin >> x >> y; cin.ignore();
-        moves.add(coord_t(x, y));
-
-		//if (startTrack) {
-  //          LOG("%c [%d, %d] -> [%d,%d]", 'A' + prev_state.size() - 1, prev_state.back().x, prev_state.back().y, x, y);
-  //      }
-
         F.setState(&moves);
+        F.print();
 
         F.update(x - 1, y, L);
         F.update(x + 1, y, R);
@@ -615,10 +607,8 @@ int main()
         F.update(x, y + 1, D);
         F.update(x, y - 1, U);
 
-        F.print(moves);
-
         auto toWhere = F.best_step(moves);
-        LOG("Moving %s", dirToStr(toWhere));
+        LOG("%s", dirToStr(toWhere));
 
         ACTION(toWhere);
         startTrack = true;
@@ -627,95 +617,4 @@ int main()
 
         F.setState(nullptr);
     }
-}
-
-int f() {
-	int w, h, cnt;
-	cin >> w; cin.ignore();
-	cin >> h; cin.ignore();
-	cin >> cnt; cin.ignore();
-	swap(w, h);
-
-	LOG("W: %d  H: %d  CNT: %d", w, h, cnt);
-
-	auto board = vector<vector<char>>(w, vector<char>(h, '.'));
-	vector<coord_t> poss(cnt, coord_t());
-
-	auto print = [&] {
-		stringstream data;
-		for (int c = 0; c < w; ++c) {
-			for (int r = 0; r < h; ++r) {
-				char enemy = 0;
-				for (int p = 0; p < poss.size(); ++p) {
-					if (poss[p] == coord_t(c, r)) {
-						data << (enemy = 'A' + p);
-					}
-				}
-
-				if (!enemy) {
-					data << board[c][r];
-				} else {
-					if (board[c][r] == '#') {
-						ERR("BOARD is # at [%d,%d], but %c is on top", c, r, enemy);
-					}
-				}
-			}
-			data << endl;
-		}
-		LOG(data.str().c_str());
-	};
-
-	auto isInside = [&](int x, int y) -> bool {
-		return x >= 0 && y >= 0 && x < w && y < h;
-	};
-
-	auto update = [&](int x, int y, char F) {
-		if (!isInside(x, y)) {
-			ERR("[%d,%d] -> %c  == OUTSIDE", x, y, F);
-		} else {
-			if (board[x][y] != '.' && board[x][y] != F) {
-				ERR("[%d,%d]   %c -> %c", x, y, board[x][y], F);
-			} else {
-				board[x][y] = F;
-			}
-		}
-	};
-
-	while (1) {
-		char U, D, L, R;
-		cin >> U; cin.ignore(); cin >> R; cin.ignore();
-		cin >> D; cin.ignore(); cin >> L; cin.ignore();
-
-		//swap(U, L);
-		//swap(D, R);
-
-		LOG(" %c ", U);
-		LOG("%c %c", L, R);
-		LOG(" %c ", D);
-
-		for (int c = 0; c < cnt; ++c) {
-			int x, y;
-			cin >> x >> y; cin.ignore();
-
-			poss[c] = coord_t(x, y);
-			if (!isInside(x, y)) {
-				ERR("[%d,%d] OUTSIDE of [%d,%d]", x, y, w, h);
-			} else {
-				if (board[x][y] == '#') {
-					ERR("Enemy %c on [%d,%d] WALL !", c + 'A', x, y);
-				}
-			}
-
-			if (c == cnt - 1) {
-				update(x - 1, y, L);
-				update(x + 1, y, R);
-				update(x, y + 1, D);
-				update(x, y - 1, U);
-			} else {
-				update(x, y, '_');
-			}
-		}
-		print();
-		ACTION(UP);
-	}
 }
