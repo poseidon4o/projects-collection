@@ -18,11 +18,7 @@ using namespace std;
 
 struct coord_t {
     coord_t(int x = -1, int y = -1) : x(x), y(y) {}
-    union {
-        int data[2];
-        struct { int x, y; };
-        struct { int first, second; };
-    };
+    int x, y;
 };
 
 bool operator==(const coord_t & l, const coord_t & r) {
@@ -97,8 +93,9 @@ struct state_t {
     }
 
     bool isEnemy(int x, int y) {
+		coord_t at(x, y);
         for (int c = 0; c < m_items.size() - 1; ++c) {
-            if (m_items[c].first == x && m_items[c].second == y) {
+            if (m_items[c] == at) {
                 return true;
             }
         }
@@ -290,7 +287,7 @@ struct field_t {
             visited->set(cur.pos);
 
             for (int c = 0; c < 4; ++c) {
-                auto next = cur.pos + steps[c];
+                auto next = wrap(cur.pos + steps[c]);
 
                 if (isInside(next) && !visited->check(next) && m_data[next.x][next.y] == free) {
                     Q.push(dist_pair_t({ next, cur.len + 1 }));
@@ -376,15 +373,16 @@ struct field_t {
     }
 
     void update(int x, int y, cell_t val) {
-        if (x < 0 || y < 0 || x >= m_data.size() || y >= m_data[0].size()) {
-            return;
+		coord_t pos = wrap(coord_t(x, y));
+		if (!isInside(pos)) {
+			return;
+		}
+
+        if (m_data[pos.x][pos.y] != empty && m_data[pos.x][pos.y] != val) {
+            ERR("[%d,%d] set to '%s' but was '%s'", x, y, cellType(val), cellType(m_data[pos.x][pos.y]));
         }
 
-        if (m_data[x][y] != empty && m_data[x][y] != val) {
-            ERR("[%d,%d] set to '%s' but was '%s'", x, y, cellType(val), cellType(m_data[x][y]));
-        }
-
-        m_data[x][y] = val;
+        m_data[pos.x][pos.y] = val;
     }
 
     struct dfs_state_t {
@@ -414,7 +412,7 @@ struct field_t {
         //LOG("dfs_step(%d, %d) [marked as visited], state {%d, %c} size(%d)", state.player().x, state.player().y, st.idx, st.from, dfs.m_state.size());
 
         for (/**/; st.idx < 4; ++st.idx) {
-            auto to = state.player() + steps[st.idx];
+            auto to = wrap(state.player() + steps[st.idx]);
             if (!isInside(to)) {
                 continue;
             }
@@ -452,6 +450,24 @@ struct field_t {
     bool isInside(coord_t pos) {
         return pos.x >= 0 && pos.x < m_data.size() && pos.y >= 0 && pos.y <= m_data[0].size();
     }
+
+	// makes the pos wrap around edges
+	coord_t W(coord_t pos) {
+		const int width = m_data.size();
+		const int height = m_data[0].size();
+
+		pos.x = pos.x % width;
+		pos.y = pos.y % height;
+
+		pos.x += pos.x < 0 ? width : 0;
+		pos.y += pos.y < 0 ? height : 0;
+
+		return pos;
+	}
+
+	coord_t wrap(coord_t pos) {
+		return W(pos);
+	}
 
     dir_t best_step(state_t &state) {
         static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 },{ 0, 0 } };
@@ -511,7 +527,7 @@ struct field_t {
             }
 
             for (int c = 0; c < 4; ++c) {
-                auto nPos = steps[c] + cur.back();
+                auto nPos = wrap(steps[c] + cur.back());
 
                 if (isInside(nPos) && m_data[nPos.x][nPos.y] == free && !state.isEnemy(nPos.x, nPos.y) && !bfs_visited->check(nPos)) {
                     bfs_visited->set(nPos);
@@ -523,7 +539,7 @@ struct field_t {
         //LOG("Best place to go [%d,%d] -> [%d,%d], path len: %d", pl.x, pl.y, bestPos.back().x, bestPos.back().y, bestPos.size());
         if (bestPos.size() > 1) {
             for (int c = 0; c < 4; ++c) {
-                auto check = steps[c] + pl;
+                auto check = wrap(steps[c] + pl);
                 if (bestPos[1] == check) {
                     return step_map[c];
                 }
@@ -558,8 +574,9 @@ int main()
     cin >> height; cin.ignore();
     cin >> figCount; cin.ignore();
 
-    field_t F(width, height);
+	LOG("W:%d H:%d  PL:%d", width, height, figCount);
 
+    field_t F(width, height);
     F.dfs_init();
 
     movemap_t movingPlayers(0);
