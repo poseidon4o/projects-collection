@@ -173,6 +173,9 @@ void ACTION(dir_t d) {
     fprintf(stdout, "%c\n", dirToC(d));
 }
 
+static const coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 },{ 0, 0 } };
+static const dir_t step_map[5] = { RIGHT, LEFT, DOWN, UP, STAY };
+
 struct field_t {
     enum cell_t {
         empty = '.',
@@ -266,7 +269,8 @@ struct field_t {
     }
 
     int BFSDist(coord_t from, coord_t to) {
-        static coord_t steps[4] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 } };
+		LOG("BFSDist({%d,%d}, {%d,%d})", from.x, from.y, to.x, to.y);
+
 
         struct dist_pair_t {
             coord_t pos;
@@ -469,10 +473,64 @@ struct field_t {
 		return W(pos);
 	}
 
-    dir_t best_step(state_t &state) {
-        static coord_t steps[5] = { { 0, 1 },{ 0, -1 },{ 1, 0 },{ -1, 0 },{ 0, 0 } };
-        static dir_t step_map[5] = { RIGHT, LEFT, DOWN, UP, STAY };
+	dir_t best_first(state_t & state) {
+		// pairs with closest enemy dist, and avg dist
+		struct cell_dist_t {
+			int closest;
+			float avg;
+			dir_t dir;
+			cell_dist_t(): closest(0), avg(0), dir(INVALID) {}
+		};
+		vector<cell_dist_t> distances(4, cell_dist_t());
+		const auto & pl = state.player();
 
+		// foreach cell
+		for (int c = 0; c < 4; ++c) {
+			const auto next = wrap(pl + steps[c]);
+
+			if (!isInside(next) || m_data[next.x][next.y] != free || state.isEnemy(next.x, next.y)) {
+				continue;
+			}
+
+			LOG("CELL [%d,%d]", next.x, next.y);
+
+			int dist = 1e99;
+			float avg = 0.f;
+			for (int r = 0; r < state.size() - 1; ++c) {
+				int thisDist = BFSDist(next, state[c]);
+				dist = min(dist, thisDist);
+				avg += thisDist;
+			}
+			avg /= state.size() - 1;
+			distances[c].closest = dist;
+			distances[c].avg = avg;
+			distances[c].dir = step_map[c];
+		}
+		
+		// sort by closest then by avg
+		std::sort(distances.begin(), distances.end(), [](const cell_dist_t & l, const cell_dist_t & r) {
+			if (l.closest == r.closest) {
+				return l.avg < r.avg;
+			} else {
+				return l.avg < r.avg;
+			}
+		});
+
+		dir_t dir = INVALID;
+		if (distances[0].closest == distances[1].closest) {
+			dir = distances[0].avg < distances[1].avg ? distances[0].dir : distances[1].dir;
+		} else {
+			dir = distances[0].dir;
+		}
+
+		if (dir == INVALID) {
+			LOG("Invalid best first step!!!!!!!!!!!!");
+			exit(1);
+		}
+		return STAY;
+	}
+
+    dir_t best_step(state_t &state) {
         const auto & pl = state.player();
 
         float avgDist = 0.f;
@@ -500,7 +558,9 @@ struct field_t {
 
         if (doDFS) {
             return dfs_step(state);
-        }
+		} else {
+			return best_first(state);
+		}
 
         float bestDist = 0;
 
